@@ -1,0 +1,32 @@
+# --- Global / Common ---
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+
+# --- IDE & Editor Config ---
+.vscode/
+.idea/
+*.swp
+
+# --- Frontend (React / Vite) ---
+/aria-frontend/node_modules
+/aria-frontend/dist
+/aria-frontend/build
+/aria-frontend/.vite
+/aria-frontend/coverage
+
+# --- Backend (Python / Flask) ---
+/aria-backend/venv
+/aria-backend/__pycache__
+/aria-backend/instance
+/aria-backend/*.pyc
+/aria-backend/.flaskenv
+
+# --- Contracts (Clarinet) ---
+/contracts/deployments
+/contracts/.clarinet-cache
+
+# --- Qodo (as seen in your ls) ---
+.qodo/

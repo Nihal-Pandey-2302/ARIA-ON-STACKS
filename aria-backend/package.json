@@ -1,0 +1,22 @@
+{
+  "name": "aria-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "mint_helper.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@scure/bip32": "^2.0.0",
+    "@stacks/network": "^7.2.0",
+    "@stacks/transactions": "^7.2.0",
+    "@stacks/wallet-sdk": "^7.2.0",
+    "bip39": "^3.1.0",
+    "dotenv": "^17.2.3",
+    "node-fetch": "^3.3.2"
+  }
+}

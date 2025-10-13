@@ -1,0 +1,12 @@
+Flask
+python-dotenv
+google-generativeai
+requests # For general HTTP requests, might not be strictly needed for Gemini but good practice
+# For IPFS integration (choose one or use a service like Pinata via their API)
+# ipfshttpclient # If running a local IPFS node
+# Or for a service like Pinata: requests (already added), or a dedicated Pinata SDK if available
+pyzbar
+opencv-python-headless
+pypdf
+Pillow
+flask-cors
