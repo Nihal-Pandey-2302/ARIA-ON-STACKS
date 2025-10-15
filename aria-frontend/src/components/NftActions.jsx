@@ -11,21 +11,18 @@ import {
   Input,
   InputGroup,
   Heading,
-  useToast
+  useToast,
 } from '@chakra-ui/react';
-import {
-  uintCV,
-  cvToHex,
-  createAsset // ✅ valid in @stacks/transactions@7.2.0
-} from '@stacks/transactions';
+import { cvToHex, uintCV, NonFungibleConditionCode, PostConditionMode } from '@stacks/transactions';
 import {
   STACKS_EXPLORER_URL,
   DENOM_DISPLAY,
   DENOM_DECIMALS,
   MARKETPLACE_CONTRACT_ID,
   RWA_NFT_CONTRACT_ID,
-  STACKS_NETWORK
+  STACKS_NETWORK,
 } from '../constants';
+import { buildNFTPostCondition } from '../utils/postConditions';
 
 const NftActions = ({ txId, address, tokenId }) => {
   const [listPrice, setListPrice] = useState('');
@@ -34,78 +31,85 @@ const NftActions = ({ txId, address, tokenId }) => {
 
   const explorerLink = `${STACKS_EXPLORER_URL}/txid/${txId}?chain=testnet`;
 
+  // ✅ Leather-compatible NFT post-condition
+  const makeLeatherNFTPostCondition = (walletAddress, nftAddress, nftName, assetName, tokenId) => ({
+    principal: {
+      address: walletAddress,
+      id: 2, // standard principal
+    },
+    conditionCode: NonFungibleConditionCode.DoesNotSend, // 7
+    type: 2, // NFT type
+    assetInfo: {
+      address: nftAddress,
+      contractName: nftName,
+      assetName,
+    },
+    value: tokenId, // plain number
+    postConditionMode: PostConditionMode.Deny, // 2
+  });
+
   const handleList = async () => {
-    if (!tokenId) {
-      return toast({ title: 'NFT not confirmed yet', status: 'warning' });
+  if (!tokenId) {
+    return toast({ title: 'NFT not confirmed yet', status: 'warning' });
+  }
+
+  const priceNum = parseFloat(listPrice?.trim());
+  if (!priceNum || priceNum <= 0) {
+    return toast({ title: 'Invalid Price', status: 'warning' });
+  }
+
+  const priceInMicroSTX = Math.floor(priceNum * 10 ** DENOM_DECIMALS);
+  setListingLoading(true);
+
+  try {
+    // Split contract strings
+    const [marketplaceAddress, marketplaceName] = MARKETPLACE_CONTRACT_ID.split('.');
+
+    // Function args for listing contract
+    const functionArgs = [
+      cvToHex(uintCV(Number(tokenId))),
+      cvToHex(uintCV(priceInMicroSTX)),
+    ];
+
+    const networkMode =
+      STACKS_NETWORK?.client?.baseUrl?.includes('mainnet') ? 'mainnet' : 'testnet';
+
+    const txPayload = {
+  contract: `${marketplaceAddress}.${marketplaceName}`,
+  functionName: 'list-asset',
+  functionArgs,
+  network: networkMode,
+  // REMOVE postConditions for now
+};
+
+
+    console.log('Listing txPayload:', JSON.stringify(txPayload, null, 2));
+
+    if (!window?.LeatherProvider?.request) {
+      throw new Error('LeatherProvider not available');
     }
 
-    const priceInMicroSTX = Math.floor(parseFloat(listPrice) * 10 ** DENOM_DECIMALS);
-    if (isNaN(priceInMicroSTX) || priceInMicroSTX <= 0) {
-      return toast({ title: 'Invalid Price', status: 'warning' });
-    }
+    const result = await window.LeatherProvider.request('stx_callContract', txPayload);
 
-    setListingLoading(true);
+    console.log('Leather result:', result);
 
-    try {
-      const [marketplaceAddress, marketplaceName] = MARKETPLACE_CONTRACT_ID.split('.');
-      const [nftAddress, nftName] = RWA_NFT_CONTRACT_ID.split('.');
+    toast({
+      title: 'Listing Submitted!',
+      description: 'NFT listing is being processed',
+      status: 'success',
+    });
+  } catch (err) {
+    console.error('Listing error full:', err);
+    toast({
+      title: 'Listing Error',
+      description: err?.error?.message || err?.message || JSON.stringify(err) || 'Failed to list NFT',
+      status: 'error',
+    });
+  } finally {
+    setListingLoading(false);
+  }
+};
 
-      // ✅ Create asset info (works in 7.2.0)
-      const assetInfo = createAsset(nftAddress, nftName, 'rwa-nft');
-
-      // ✅ Manually define the post-condition (JSON-safe)
-      const postCondition = {
-        type: 4, // NonFungiblePostCondition
-        conditionCode: 4, // Sends
-        principal: address,
-        assetInfo,
-        // Convert BigInt to string for safe JSON serialization
-        assetName: { type: 'uint', value: String(Number(tokenId)) }
-      };
-
-      const functionArgs = [
-        cvToHex(uintCV(Number(tokenId))),       // ✅ serialized clarity uint
-        cvToHex(uintCV(priceInMicroSTX))        // ✅ serialized clarity uint
-      ];
-
-      const networkMode = STACKS_NETWORK.client.baseUrl.includes('mainnet')
-        ? 'mainnet'
-        : 'testnet';
-
-      console.log('Calling Leather with:', {
-        contract: `${marketplaceAddress}.${marketplaceName}`,
-        functionName: 'list-asset',
-        functionArgs,
-        postConditions: [postCondition],
-        network: networkMode
-      });
-
-      // ✅ JSON-safe payload for Leather
-      await window.LeatherProvider.request('stx_callContract', {
-        contract: `${marketplaceAddress}.${marketplaceName}`,
-        functionName: 'list-asset',
-        functionArgs,
-        postConditions: [postCondition],
-        network: networkMode
-      });
-
-      toast({
-        title: 'Listing Submitted!',
-        description: 'NFT listing is being processed',
-        status: 'success'
-      });
-    } catch (e) {
-      console.error('Listing error:', e);
-      toast({
-        title: 'Listing Error',
-        description: e.error?.message || e.message || 'Failed to list NFT',
-        status: 'error',
-        duration: 10000
-      });
-    } finally {
-      setListingLoading(false);
-    }
-  };
 
   return (
     <Box width="100%" mt={6}>

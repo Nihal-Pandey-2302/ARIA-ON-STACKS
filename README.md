@@ -37,6 +37,7 @@ Our "document-to-DeFi" lifecycle is live and fully automated:
 
 Our architecture is a seamless integration of off-chain AI processing with on-chain, composable Clarity smart contracts. The Python backend acts as a trusted oracle, performing verification and executing the permissioned `mint-rwa` function on the RWA NFT contract. From that point on, all user interactions—listing, purchasing, staking, and claiming rewards—are direct, trustless transactions with the Clarity contracts.
 
+![A.R.I.A. Workflow Flowchart](Flowchart.png)
 ---
 
 ## ✨ Key Features

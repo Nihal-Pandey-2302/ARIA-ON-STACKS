@@ -12,10 +12,10 @@ export const BACKEND_URL = 'http://127.0.0.1:5001';
 export const DEPLOYER_ADDRESS = 'ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX';
 
 // Names of your Clarity contracts (matching your deployment)
-export const RWA_NFT_CONTRACT_NAME = 'rwa-nft-contract';
-export const MARKETPLACE_CONTRACT_NAME = 'marketplace-contract';
-export const STAKING_CONTRACT_NAME = 'staking-contract';
-export const ARIA_TOKEN_CONTRACT_NAME = 'aria-token-contract';
+export const RWA_NFT_CONTRACT_NAME = 'rwa-nft-contract-v2';
+export const MARKETPLACE_CONTRACT_NAME = 'marketplace-contract-v5';
+export const STAKING_CONTRACT_NAME = 'staking-contract-v7';
+export const ARIA_TOKEN_CONTRACT_NAME = 'aria-token-v2';
 
 // --- Helper for constructing full contract identifiers ---
 // These will now correctly resolve to the addresses you deployed.
