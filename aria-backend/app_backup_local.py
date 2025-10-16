@@ -84,14 +84,14 @@ def analyze_and_mint():
         ipfs_url = upload_to_ipfs(nft_metadata)
         ipfs_hash = ipfs_url.split('/')[-1]
 
-        
+        NODE_EXECUTABLE_PATH = "/home/nihal/.nvm/versions/node/v22.18.0/bin/node"
         script_path = os.path.join(os.path.dirname(__file__), 'mint_helper.cjs')
         backend_dir = os.path.dirname(__file__)
 
         app.logger.info(f"Executing minting script for recipient: {recipient_address}, IPFS: {ipfs_hash}")
         
         result = subprocess.run(
-            ['node', script_path, recipient_address, ipfs_hash],
+            [NODE_EXECUTABLE_PATH, script_path, recipient_address, ipfs_hash],
             capture_output=True, 
             text=True, 
             env=os.environ, 
