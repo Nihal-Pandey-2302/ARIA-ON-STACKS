@@ -1,0 +1,33 @@
+# Use a lightweight Python base image
+FROM python:3.13-slim
+
+# Install system-level dependencies
+RUN apt-get update && apt-get install -y \
+    libzbar0 \
+    libgl1 \
+    curl \
+    gnupg \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20 (required for your mint_helper.cjs)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g npm@latest
+
+# Set working directory
+WORKDIR /app
+
+# Copy project files
+COPY . .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Node.js dependencies
+RUN npm install
+
+# Expose port (Render provides $PORT)
+EXPOSE 8080
+
+# Start the app using Gunicorn
+CMD exec gunicorn app:app --bind 0.0.0.0:$PORT
