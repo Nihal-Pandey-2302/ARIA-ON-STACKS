@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="URL_TO_YOUR_LIVE_DAPP" target="_blank">
+  <a href="https://aria-on-stacks.vercel.app/" target="_blank">
     <img src="https://img.shields.io/badge/Launch-Live%20dApp-5546ff?style=for-the-badge&logo=vercel" alt="Launch Live dApp">
   </a>
   <a href="URL_TO_YOUR_VIDEO_DEMO" target="_blank">
