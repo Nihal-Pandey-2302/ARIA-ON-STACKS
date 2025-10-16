@@ -16,7 +16,7 @@
 ;; ---
 ;; CONSTANTS
 ;; ---
-(define-constant RWA_NFT_CONTRACT .rwa-nft-contract)
+(define-constant RWA_NFT_CONTRACT .rwa-nft-contract-v5)
 (define-constant STAKING_CONTRACT .staking-contract)
 (define-constant PLATFORM_FEE_PERCENT u5)
 

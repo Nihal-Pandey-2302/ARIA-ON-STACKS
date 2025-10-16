@@ -1,6 +1,6 @@
-;; Title: A.R.I.A. RWA NFT Contract (marketplace-registrable)
+;; Title: A.R.I.A. RWA NFT Contract v5 (Fixed Transfer)
 ;; Author: Nihal Pandey & Gemini (modified)
-;; Description: SIP-009 style NFT with an admin-settable marketplace principal.
+;; Description: SIP-009 style NFT with marketplace integration
 
 (define-trait sip-009-trait (
     (transfer
@@ -31,7 +31,7 @@
     (string-ascii 256)
 )
 
-;; Optional stored marketplace principal (set after marketplace deploy)
+;; Optional stored marketplace principal
 (define-data-var marketplace-principal (optional principal) none)
 
 ;; --- NFT DEFINITION ---
@@ -43,8 +43,7 @@
 (define-constant ERR_MINT_FAILED u103)
 (define-constant ERR_BAD_INPUT u104)
 
-;; --- ADMIN: set marketplace principal (call once after marketplace deploy) ---
-;; Only CONTRACT_OWNER (deployer) can call this.
+;; --- ADMIN: set marketplace principal ---
 (define-public (set-marketplace (p principal))
   (begin
     (asserts! (is-eq tx-sender CONTRACT_OWNER) (err ERR_UNAUTHORIZED))
@@ -53,7 +52,6 @@
   )
 )
 
-;; Optional admin helper to clear marketplace (if needed)
 (define-public (clear-marketplace)
   (begin
     (asserts! (is-eq tx-sender CONTRACT_OWNER) (err ERR_UNAUTHORIZED))
@@ -62,14 +60,12 @@
   )
 )
 
-;; Read-only to inspect stored marketplace
 (define-read-only (get-marketplace)
   (ok (var-get marketplace-principal))
 )
 
 ;; --- PUBLIC FUNCTIONS ---
 
-;; mint-rwa: only deployer can mint
 (define-public (mint-rwa
         (recipient principal)
         (ipfs-hash (string-ascii 256))
@@ -85,26 +81,33 @@
     )
 )
 
-;; transfer: permit owner OR the registered marketplace principal to call transfer
+;; FIXED: transfer function that properly handles marketplace calls
 (define-public (transfer
         (token-id uint)
         (sender principal)
         (recipient principal)
     )
     (begin
-        ;; Ensure token exists and get current owner
         (let ((current-owner-opt (nft-get-owner? rwa-nft token-id))
               (mp (var-get marketplace-principal)))
-            ;; token must exist
+            
+            ;; Token must exist
             (asserts! (is-some current-owner-opt) (err ERR_NOT_FOUND))
+            
             (let ((current-owner (unwrap-panic current-owner-opt)))
-                ;; Permit if tx-sender is the declared sender (owner) OR equals stored marketplace principal
-                (asserts! (or (is-eq tx-sender sender)
-                               (and (is-some mp) (is-eq tx-sender (unwrap-panic mp))))
-                         (err ERR_UNAUTHORIZED))
-
-                ;; Ensure the declared sender actually is the current owner
+                ;; Ensure declared sender is the actual owner
                 (asserts! (is-eq current-owner sender) (err ERR_UNAUTHORIZED))
+                
+                ;; Allow transfer if:
+                ;; 1. tx-sender is the owner (direct transfer)
+                ;; 2. OR contract-caller is the registered marketplace (marketplace listing/sale)
+                (asserts! 
+                    (or 
+                        (is-eq tx-sender sender)
+                        (and (is-some mp) (is-eq contract-caller (unwrap-panic mp)))
+                    )
+                    (err ERR_UNAUTHORIZED)
+                )
             )
         )
 
