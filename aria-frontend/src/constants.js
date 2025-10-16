@@ -5,8 +5,8 @@ import { STACKS_TESTNET } from '@stacks/network';
 export const STACKS_NETWORK = STACKS_TESTNET;
 
 // --- Backend API URL ---
-export const BACKEND_URL = 'http://127.0.0.1:5001';
-
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5001';
+// https://aria-on-stacks.onrender.com
 // --- Deployed Contract Information ---
 // This is your correct, funded deployer address.
 export const DEPLOYER_ADDRESS = 'ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX';
