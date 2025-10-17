@@ -8,7 +8,7 @@
   <a href="https://aria-on-stacks.vercel.app/" target="_blank">
     <img src="https://img.shields.io/badge/Launch-Live%20dApp-5546ff?style=for-the-badge&logo=vercel" alt="Launch Live dApp">
   </a>
-  <a href="https://youtu.be/80ptmdpq6qk" target="_blank">
+  <a href="https://youtu.be/foxdYtTSqj8" target="_blank">
     <img src="https://img.shields.io/badge/Watch-Video%20Demo-blue?style=for-the-badge&logo=youtube" alt="Watch Demo">
   </a>
 </p>
@@ -36,6 +36,28 @@ Our "document-to-DeFi" lifecycle is live and fully automated:
 Our architecture is a seamless integration of off-chain AI processing with on-chain, composable Clarity smart contracts. The Python backend acts as a trusted oracle, performing verification and executing the permissioned `mint-rwa` function on the RWA NFT contract. From that point on, all user interactions—listing, browsing, and (post-presale) purchasing—are direct, trustless transactions with the Clarity contracts.
 
 ![A.R.I.A. Workflow Flowchart](Flowchart.png)
+
+---
+
+## 📸 Application Screenshots
+
+<p align="center">
+  <img src="MintPage.png" alt="AI-Powered RWA Minting Interface" width="100%">
+  <br>
+  <em>AI-Powered Verification & Minting Dashboard</em>
+</p>
+
+<p align="center">
+  <img src="MarketPage.png" alt="Premium RWA Marketplace" width="100%">
+  <br>
+  <em>Presale Marketplace - Browse & Register Interest</em>
+</p>
+
+<p align="center">
+  <img src="StakePage.png" alt="ARIA Staking Dashboard" width="100%">
+  <br>
+  <em>Staking Dashboard - Earn STX Rewards</em>
+</p>
 
 ---
 
