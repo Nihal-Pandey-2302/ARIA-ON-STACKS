@@ -8,7 +8,7 @@
   <a href="https://aria-on-stacks.vercel.app/" target="_blank">
     <img src="https://img.shields.io/badge/Launch-Live%20dApp-5546ff?style=for-the-badge&logo=vercel" alt="Launch Live dApp">
   </a>
-  <a href="https://youtu.be/foxdYtTSqj8" target="_blank">
+  <a href="https://youtu.be/m-Y3aGPawJY" target="_blank">
     <img src="https://img.shields.io/badge/Watch-Video%20Demo-blue?style=for-the-badge&logo=youtube" alt="Watch Demo">
   </a>
 </p>
