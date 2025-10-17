@@ -25,7 +25,7 @@ const fetch = globalThis.fetch || require('node-fetch');
 
 // --- Hardcoded contract details (update these if needed) ---
 const DEPLOYER_ADDRESS = 'ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX';
-const CONTRACT_NAME = 'rwa-nft-contract-v5';
+const CONTRACT_NAME = 'rwa-nft-marketplace-unified';  // ⚠️ CHANGED
 
 // --- CLI arguments ---
 const recipient = process.argv[2];

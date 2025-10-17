@@ -12,8 +12,9 @@ export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1
 export const DEPLOYER_ADDRESS = 'ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX';
 
 // Names of your Clarity contracts (matching your deployment)
-export const RWA_NFT_CONTRACT_NAME = 'rwa-nft-contract-v5';
-export const MARKETPLACE_CONTRACT_NAME = 'marketplace-contract-v7';
+export const UNIFIED_CONTRACT_NAME = 'rwa-nft-marketplace-unified';
+export const RWA_NFT_CONTRACT_NAME = 'rwa-nft-marketplace-unified';  // Same contract!
+export const MARKETPLACE_CONTRACT_NAME = 'rwa-nft-marketplace-unified';  
 export const STAKING_CONTRACT_NAME = 'staking-contract-v7';
 export const ARIA_TOKEN_CONTRACT_NAME = 'aria-token-v2';
 

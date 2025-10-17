@@ -38,6 +38,7 @@ Our "document-to-DeFi" lifecycle is live and fully automated:
 Our architecture is a seamless integration of off-chain AI processing with on-chain, composable Clarity smart contracts. The Python backend acts as a trusted oracle, performing verification and executing the permissioned `mint-rwa` function on the RWA NFT contract. From that point on, all user interactions—listing, purchasing, staking, and claiming rewards—are direct, trustless transactions with the Clarity contracts.
 
 ![A.R.I.A. Workflow Flowchart](Flowchart.png)
+
 ---
 
 ## ✨ Key Features
@@ -50,6 +51,7 @@ We delivered a feature-rich MVP that showcases a truly investable and self-susta
 * ✅ **Modern UX/UI:** A custom dark theme, a modern header, toast notifications, and integration with the **Leather Wallet** for a smooth user experience.
 * ✅ **Comprehensive Dashboards:** Includes a full-featured "Staking Dashboard" and the "Marketplace."
 * ✅ **Transparent Backend Interaction:** The frontend provides real-time polling and feedback as the backend mints the NFT, giving users a clear view into the on-chain confirmation process.
+* ✅ **Unified Smart Contract:** NFT minting and marketplace operations are now consolidated into a single, gas-efficient contract, reducing complexity and improving composability.
 
 ---
 
@@ -59,7 +61,7 @@ We delivered a feature-rich MVP that showcases a truly investable and self-susta
 * **Backend:** Python, Flask, **Node.js (for minting helper)**
 * **AI:** Google Gemini Pro Vision API
 * **Blockchain:** **Stacks Testnet**, **Clarity**
-* **Smart Contracts:** **SIP-009** (RWA NFT), **SIP-010** (ARIA Token), Marketplace Contract, Staking Contract
+* **Smart Contracts:** **SIP-009** (RWA NFT), **SIP-010** (ARIA Token), Unified Marketplace & NFT Contract, Staking Contract
 * **Decentralized Storage:** IPFS (via Pinata)
 
 ---
@@ -120,11 +122,29 @@ We delivered a feature-rich MVP that showcases a truly investable and self-susta
 
 ## 🔗 Deployed Contracts (Testnet)
 
+### Current Deployment
+
 * **Deployer Address:** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX`
-* **$ARIA Token (SIP-010):** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.aria-token-contract`
-* **RWA NFT (SIP-009):** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.rwa-nft-contract`
-* **Staking Contract:** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.staking-contract`
-* **Marketplace Contract:** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.marketplace-contract`
+* **$ARIA Token (SIP-010):** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.aria-token-v2`
+* **Unified RWA NFT & Marketplace (SIP-009):** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.rwa-nft-marketplace-unified`
+* **Staking Contract:** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.staking-contract-v7`
+
+**Contract Architecture Improvement:**
+In this iteration, we consolidated NFT minting and marketplace operations into a single unified contract (`rwa-nft-marketplace-unified`), reducing contract complexity, improving gas efficiency, and simplifying state management while maintaining full functionality and security.
+
+---
+
+## 📋 Legacy Contracts (Previous Deployment)
+
+The following contracts represent our original architecture, where NFT and marketplace functions were separated into distinct contracts. These are preserved for reference and are no longer actively maintained:
+
+* **RWA NFT (SIP-009) - Legacy:** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.rwa-nft-contract`
+* **Marketplace Contract - Legacy:** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.marketplace-contract`
+* **$ARIA Token (SIP-010) - Legacy:** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.aria-token-contract`
+* **Staking Contract - Legacy:** `ST16W5DG0N8VP85W6DK1ZB4ME3BK3WN2750H78FNX.staking-contract`
+
+**Migration Notes:**
+Users who previously interacted with the legacy contracts are encouraged to migrate to the current unified deployment for improved performance and access to the latest features. The unified contract maintains backward compatibility with key function signatures while offering enhanced optimization.
 
 ---
 
@@ -133,6 +153,7 @@ We delivered a feature-rich MVP that showcases a truly investable and self-susta
 * **Fractionalization:** Allow users to fractionalize high-value RWAs into fungible SIP-010 tokens.
 * **DeFi Collateralization:** Partner with lending protocols on Stacks to allow A.R.I.A.'s AI-verified NFTs to be used as trusted collateral.
 * **Full DAO Governance:** Transition ownership of key protocol contracts to a DAO controlled by staked $ARIA holders.
+* **Cross-Chain Bridging:** Enable RWA NFTs to be bridged to other blockchains for increased liquidity and reach.
 
 ---
 

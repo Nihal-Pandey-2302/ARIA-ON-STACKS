@@ -1,4 +1,3 @@
-# app.py (Final Version - Fixed)
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 import os
