@@ -360,12 +360,12 @@ const MarketplacePage = ({ address }) => {
                   </HStack>
                   
                   <Image
-                    src={listing.metadata.image}
+                    src="https://i.postimg.cc/PJY2gmC0/LOGO.png"
                     alt={listing.metadata.name}
                     borderRadius="md"
                     boxSize="200px"
                     objectFit="cover"
-                    fallbackSrc="https://via.placeholder.com/200"
+                    fallbackSrc="https://i.postimg.cc/PJY2gmC0/LOGO.png"
                   />
                   
                   <Heading size="md" noOfLines={1}>{listing.metadata.name}</Heading>
