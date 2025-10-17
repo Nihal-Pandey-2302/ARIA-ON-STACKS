@@ -1,25 +1,15 @@
-// src/pages/StakingPage.jsx
 import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Heading, Text, VStack, Button, Input, InputGroup, InputRightAddon,
   Spinner, Stat, StatLabel, StatNumber, useToast, SimpleGrid, Divider, HStack
 } from '@chakra-ui/react';
 import {
-  cvToHex, uintCV, standardPrincipalCV
+  cvToHex, uintCV, standardPrincipalCV, deserializeCV, cvToJSON
 } from '@stacks/transactions';
 import {
   STACKS_NETWORK, STAKING_CONTRACT_ID, ARIA_TOKEN_CONTRACT_ID,
   TOKEN_DISPLAY, DENOM_DECIMALS
 } from '../constants';
-
-const ENDPOINT_FALLBACKS = [
-  STACKS_NETWORK.client?.baseUrl,
-  'https://stacks-node-api.testnet.stacks.co',
-  'https://stacks-node-api.blockstack.org'
-].filter(Boolean);
-
-const MAX_ENDPOINT_RETRIES = 3;
-const PER_ENDPOINT_TIMEOUT = 7000; // ms
 
 const StakingPage = ({ address }) => {
   const [loading, setLoading] = useState(true);
@@ -27,93 +17,70 @@ const StakingPage = ({ address }) => {
   const [balances, setBalances] = useState({ aria: 0n, staked: 0n, rewards: 0n });
   const [stakeAmount, setStakeAmount] = useState('');
   const [unstakeAmount, setUnstakeAmount] = useState('');
-  const [lastError, setLastError] = useState(null);
   const toast = useToast();
 
   // -------------------------
-  // Robust unwrap for Clarity values → BigInt
-  // -------------------------
-  const unwrapClarityValue = (val) => {
-    if (!val) return 0n;
-    let r = val;
-
-    // unwrap ok
-    while (r && r.type === 'ok') r = r.value;
-    // unwrap optional
-    while (r && r.type === 'optional') {
-      if (!r.value) return 0n;
-      r = r.value;
-    }
-
-    if (typeof r === 'string') {
-      const cleaned = r.startsWith('u') ? r.slice(1) : r;
-      try { return BigInt(cleaned); } catch { return 0n; }
-    }
-
-    if (r && r.type === 'uint') {
-      try { return BigInt(r.value); } catch { return 0n; }
-    }
-
-    if (r && r.type === 'tuple' && r.data) {
-      for (const k of Object.keys(r.data)) {
-        const cand = r.data[k];
-        if (cand?.type === 'uint') {
-          try { return BigInt(cand.value); } catch { return 0n; }
-        }
-      }
-    }
-
-    return 0n;
-  };
-
-  // -------------------------
-  // Fetch with timeout
-  // -------------------------
-  const fetchWithTimeout = (url, opts = {}, timeout = PER_ENDPOINT_TIMEOUT) =>
-    new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('timeout')), timeout);
-      fetch(url, opts)
-        .then(res => { clearTimeout(timer); resolve(res); })
-        .catch(err => { clearTimeout(timer); reject(err); });
-    });
-
-  // -------------------------
-  // callReadOnly (retry + fallback)
+  // callReadOnly - proper parsing
   // -------------------------
   const callReadOnly = async (contractId, functionName, functionArgs = []) => {
     if (!address) return 0n;
 
-    const body = JSON.stringify({
-      sender: address,
-      arguments: functionArgs.map(cvToHex)
-    });
+    try {
+      const [contractAddress, contractName] = contractId.split('.');
+      const url = `${STACKS_NETWORK.client.baseUrl}/v2/contracts/call-read/${contractAddress}/${contractName}/${functionName}`;
+      
+      console.log(`📡 Calling ${functionName}:`, { contractId, args: functionArgs });
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: address,
+          arguments: functionArgs.map(cvToHex)
+        }),
+      });
 
-    let lastErr = null;
-    for (const endpoint of ENDPOINT_FALLBACKS) {
-      for (let attempt = 1; attempt <= MAX_ENDPOINT_RETRIES; attempt++) {
-        try {
-          const [contractAddress, contractName] = contractId.split('.');
-          const url = `${endpoint.replace(/\/$/, '')}/v2/contracts/call-read/${contractAddress}/${contractName}/${functionName}`;
-          const res = await fetchWithTimeout(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body
-          }, PER_ENDPOINT_TIMEOUT);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
 
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await response.json();
+      console.log(`✅ ${functionName} raw response:`, data);
 
-          const data = await res.json();
-          const parsed = unwrapClarityValue(data.result);
-          return parsed;
-        } catch (err) {
-          lastErr = err;
-          await new Promise(r => setTimeout(r, 400 * attempt));
+      if (!data.okay) {
+        console.error(`❌ Contract call failed:`, data);
+        return 0n;
+      }
+
+      // Deserialize and parse the Clarity value
+      const clarityValue = deserializeCV(data.result);
+      const parsed = cvToJSON(clarityValue);
+      console.log(`✅ ${functionName} parsed:`, parsed);
+
+      // Extract the uint value
+      let result = 0n;
+      
+      if (parsed.type === 'uint') {
+        result = BigInt(parsed.value);
+      } else if (parsed.value !== undefined) {
+        // Handle nested structures
+        const val = parsed.value;
+        if (typeof val === 'string') {
+          result = BigInt(val.startsWith('u') ? val.slice(1) : val);
+        } else if (val.type === 'uint') {
+          result = BigInt(val.value);
+        } else if (typeof val === 'number' || typeof val === 'bigint') {
+          result = BigInt(val);
         }
       }
-    }
 
-    console.error('callReadOnly failed for', contractId, functionName, lastErr);
-    return 0n;
+      console.log(`✅ ${functionName} final BigInt:`, result.toString());
+      return result;
+
+    } catch (err) {
+      console.error(`❌ callReadOnly error for ${functionName}:`, err);
+      return 0n;
+    }
   };
 
   // -------------------------
@@ -127,6 +94,8 @@ const StakingPage = ({ address }) => {
     }
 
     setLoading(true);
+    console.log('🔄 Fetching balances for:', address);
+
     try {
       const [ariaBal, stakedBal, rewardsBal] = await Promise.all([
         callReadOnly(ARIA_TOKEN_CONTRACT_ID, 'get-balance', [standardPrincipalCV(address)]),
@@ -134,34 +103,54 @@ const StakingPage = ({ address }) => {
         callReadOnly(STAKING_CONTRACT_ID, 'get-claimable-rewards-for', [standardPrincipalCV(address)])
       ]);
 
-      console.log('Balances fetched (raw BigInt):', {
-        ariaBal: ariaBal.toString(),
-        stakedBal: stakedBal.toString(),
-        rewardsBal: rewardsBal.toString()
+      console.log('✅ All balances fetched:', {
+        aria: ariaBal.toString(),
+        staked: stakedBal.toString(),
+        rewards: rewardsBal.toString()
       });
 
-      setBalances({ aria: ariaBal, staked: stakedBal, rewards: rewardsBal });
+      setBalances({ 
+        aria: ariaBal, 
+        staked: stakedBal, 
+        rewards: rewardsBal 
+      });
+
     } catch (err) {
-      console.error('fetchBalances error:', err);
-      setLastError(err.message || String(err));
-      toast({ title: 'Error', description: 'Failed to fetch balances', status: 'error' });
+      console.error('❌ fetchBalances error:', err);
+      toast({ 
+        title: 'Error fetching balances', 
+        description: err.message || String(err),
+        status: 'error',
+        duration: 5000
+      });
     } finally {
       setLoading(false);
     }
   }, [address, toast]);
 
-  useEffect(() => { if (address) fetchBalances(); }, [address, fetchBalances]);
+  useEffect(() => { 
+    if (address) {
+      fetchBalances(); 
+    }
+  }, [address, fetchBalances]);
 
   // -------------------------
   // Leather contract calls
   // -------------------------
   const callContract = async (fnName, fnArgs = []) => {
-    if (!address) return toast({ title: 'Connect wallet', status: 'warning' });
+    if (!address) {
+      return toast({ 
+        title: 'Wallet not connected', 
+        status: 'warning' 
+      });
+    }
 
     setActionLoading(true);
     try {
       const [contractAddr, contractName] = STAKING_CONTRACT_ID.split('.');
       const networkMode = STACKS_NETWORK.client.baseUrl.includes('mainnet') ? 'mainnet' : 'testnet';
+
+      console.log(`📤 Calling ${fnName} with args:`, fnArgs);
 
       await window.LeatherProvider.request('stx_callContract', {
         contract: `${contractAddr}.${contractName}`,
@@ -170,12 +159,26 @@ const StakingPage = ({ address }) => {
         network: networkMode,
       });
 
-      toast({ title: `${fnName} submitted`, status: 'success' });
-      await new Promise(r => setTimeout(r, 3500));
-      await fetchBalances();
+      toast({ 
+        title: `${fnName} submitted!`, 
+        description: 'Transaction pending confirmation',
+        status: 'success',
+        duration: 4000
+      });
+
+      // Wait for transaction to process
+      setTimeout(() => {
+        fetchBalances();
+      }, 4000);
+
     } catch (err) {
-      console.error(`${fnName} error`, err);
-      toast({ title: `${fnName} error`, description: err?.message || String(err), status: 'error' });
+      console.error(`❌ ${fnName} error:`, err);
+      toast({ 
+        title: `${fnName} failed`, 
+        description: err?.error?.message || err?.message || String(err), 
+        status: 'error',
+        duration: 6000
+      });
     } finally {
       setActionLoading(false);
     }
@@ -185,83 +188,209 @@ const StakingPage = ({ address }) => {
   // Handlers
   // -------------------------
   const handleStake = async () => {
-    const amount = Math.floor(parseFloat(stakeAmount || '0') * (10 ** DENOM_DECIMALS));
-    if (!amount || amount <= 0) return toast({ title: 'Invalid amount', status: 'warning' });
+    const rawAmount = parseFloat(stakeAmount || '0');
+    if (!rawAmount || rawAmount <= 0) {
+      return toast({ 
+        title: 'Invalid amount', 
+        description: 'Please enter a valid stake amount',
+        status: 'warning' 
+      });
+    }
+
+    // Convert to micro-units
+    const amount = BigInt(Math.floor(rawAmount * (10 ** DENOM_DECIMALS)));
+    
+    console.log('Staking:', { rawAmount, microUnits: amount.toString() });
+
     await callContract('stake', [uintCV(amount)]);
     setStakeAmount('');
   };
 
   const handleUnstake = async () => {
-    const amount = Math.floor(parseFloat(unstakeAmount || '0') * (10 ** DENOM_DECIMALS));
-    if (!amount || amount <= 0) return toast({ title: 'Invalid amount', status: 'warning' });
+    const rawAmount = parseFloat(unstakeAmount || '0');
+    if (!rawAmount || rawAmount <= 0) {
+      return toast({ 
+        title: 'Invalid amount',
+        description: 'Please enter a valid unstake amount',
+        status: 'warning' 
+      });
+    }
+
+    // Convert to micro-units
+    const amount = BigInt(Math.floor(rawAmount * (10 ** DENOM_DECIMALS)));
+    
+    console.log('Unstaking:', { rawAmount, microUnits: amount.toString() });
+
     await callContract('unstake', [uintCV(amount)]);
     setUnstakeAmount('');
   };
 
   const handleClaim = async () => {
-    if (!balances.rewards || balances.rewards === 0n)
-      return toast({ title: 'No rewards', status: 'info' });
+    if (!balances.rewards || balances.rewards === 0n) {
+      return toast({ 
+        title: 'No rewards available', 
+        description: 'You have no STX rewards to claim yet',
+        status: 'info' 
+      });
+    }
     await callContract('claim-rewards', []);
   };
 
   // -------------------------
-  // Formatting
+  // Formatting - CRITICAL FIX
   // -------------------------
   const formatBalance = (val) => {
     try {
+      if (!val || val === 0n) return '0';
+      
+      // Convert BigInt to number, divide by decimals
       const scaled = Number(val) / (10 ** DENOM_DECIMALS);
-      return scaled.toLocaleString(undefined, { maximumFractionDigits: 6 });
-    } catch {
+      
+      // Format with proper decimals
+      return scaled.toLocaleString(undefined, { 
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 6 
+      });
+    } catch (err) {
+      console.error('Format error:', err);
       return '0';
     }
   };
 
   return (
     <Box p={6} shadow="lg" borderWidth="1px" borderRadius="xl" width="100%" bg="gray.800">
-      <Heading as="h2" size="lg" mb={4} textAlign="center">ARIA Staking & Rewards</Heading>
-
-      <HStack spacing={3} mb={4}>
-        <Button size="sm" onClick={fetchBalances}>Refresh</Button>
-        <Text fontSize="sm" color="gray.300">{address ? `Connected: ${address}` : 'Not connected'}</Text>
-        {lastError && <Text color="orange.300" fontSize="sm">Error: {lastError}</Text>}
-      </HStack>
-
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={8} textAlign="center">
-        <Stat><StatLabel>Your ARIA Balance</StatLabel><StatNumber>{formatBalance(balances.aria)}</StatNumber></Stat>
-        <Stat><StatLabel>Staked ARIA</StatLabel><StatNumber>{formatBalance(balances.staked)}</StatNumber></Stat>
-        <Stat><StatLabel>Claimable STX Rewards</StatLabel><StatNumber>{formatBalance(balances.rewards)}</StatNumber></Stat>
-      </SimpleGrid>
-
-      <Divider my={6} />
-
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8}>
-        <VStack spacing={4}>
-          <Heading size="md">Stake Your ARIA</Heading>
-          <InputGroup>
-            <Input placeholder="Amount to Stake" type="number" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} />
-            <InputRightAddon>{TOKEN_DISPLAY}</InputRightAddon>
-          </InputGroup>
-          <Button colorScheme="purple" onClick={handleStake} isLoading={actionLoading} isDisabled={!stakeAmount || parseFloat(stakeAmount) <= 0} width="100%">Stake</Button>
-        </VStack>
-
-        <VStack spacing={4}>
-          <Heading size="md">Unstake Your ARIA</Heading>
-          <InputGroup>
-            <Input placeholder="Amount to Unstake" type="number" value={unstakeAmount} onChange={(e) => setUnstakeAmount(e.target.value)} />
-            <InputRightAddon>{TOKEN_DISPLAY}</InputRightAddon>
-          </InputGroup>
-          <Button colorScheme="orange" onClick={handleUnstake} isLoading={actionLoading} isDisabled={!unstakeAmount || parseFloat(unstakeAmount) <= 0} width="100%">Unstake</Button>
-        </VStack>
-      </SimpleGrid>
-
-      <VStack mt={6}>
-        <Button colorScheme="green" size="lg" onClick={handleClaim} isLoading={actionLoading} isDisabled={balances.rewards === 0n} width={{ base: '100%', md: 'auto' }}>
-          Claim {formatBalance(balances.rewards)} STX Rewards
-        </Button>
+      <VStack spacing={4} mb={6}>
+        <Heading as="h2" size="lg" textAlign="center">
+          ARIA Staking & Rewards
+        </Heading>
+        <Text fontSize="sm" color="gray.400" textAlign="center" maxW="2xl">
+          Stake your ARIA tokens to earn proportional STX rewards from marketplace fees
+        </Text>
       </VStack>
 
-      {loading && (
-        <VStack mt={4}><Spinner /><Text>Fetching balances…</Text></VStack>
+      <HStack spacing={3} mb={4} flexWrap="wrap">
+        <Button size="sm" onClick={fetchBalances} colorScheme="blue" leftIcon={<span>🔄</span>}>
+          Refresh
+        </Button>
+        {address ? (
+          <Text fontSize="xs" color="gray.400">
+            {address.slice(0, 8)}...{address.slice(-6)}
+          </Text>
+        ) : (
+          <Text fontSize="xs" color="orange.400">
+            Connect wallet to view balances
+          </Text>
+        )}
+      </HStack>
+
+      {loading ? (
+        <VStack py={8}>
+          <Spinner size="xl" />
+          <Text color="gray.400">Loading balances...</Text>
+        </VStack>
+      ) : (
+        <>
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
+            <Box p={4} bg="gray.700" borderRadius="lg" textAlign="center">
+              <Stat>
+                <StatLabel color="gray.400">Your ARIA Balance</StatLabel>
+                <StatNumber fontSize="2xl" color="purple.300">
+                  {formatBalance(balances.aria)}
+                </StatNumber>
+                <Text fontSize="xs" color="gray.500" mt={1}>{TOKEN_DISPLAY}</Text>
+              </Stat>
+            </Box>
+
+            <Box p={4} bg="gray.700" borderRadius="lg" textAlign="center">
+              <Stat>
+                <StatLabel color="gray.400">Staked ARIA</StatLabel>
+                <StatNumber fontSize="2xl" color="blue.300">
+                  {formatBalance(balances.staked)}
+                </StatNumber>
+                <Text fontSize="xs" color="gray.500" mt={1}>{TOKEN_DISPLAY}</Text>
+              </Stat>
+            </Box>
+
+            <Box p={4} bg="gray.700" borderRadius="lg" textAlign="center">
+              <Stat>
+                <StatLabel color="gray.400">Claimable Rewards</StatLabel>
+                <StatNumber fontSize="2xl" color="green.300">
+                  {formatBalance(balances.rewards)}
+                </StatNumber>
+                <Text fontSize="xs" color="gray.500" mt={1}>STX</Text>
+              </Stat>
+            </Box>
+          </SimpleGrid>
+
+          <Divider my={6} />
+
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8} mb={6}>
+            <VStack spacing={4} align="stretch">
+              <Heading size="md" color="purple.300">Stake Your ARIA</Heading>
+              <InputGroup>
+                <Input 
+                  placeholder="Amount to Stake" 
+                  type="number" 
+                  value={stakeAmount} 
+                  onChange={(e) => setStakeAmount(e.target.value)}
+                  step="0.000001"
+                />
+                <InputRightAddon>{TOKEN_DISPLAY}</InputRightAddon>
+              </InputGroup>
+              <Button 
+                colorScheme="purple" 
+                onClick={handleStake} 
+                isLoading={actionLoading} 
+                isDisabled={!stakeAmount || parseFloat(stakeAmount) <= 0}
+                width="100%"
+                size="lg"
+              >
+                Stake ARIA
+              </Button>
+            </VStack>
+
+            <VStack spacing={4} align="stretch">
+              <Heading size="md" color="orange.300">Unstake Your ARIA</Heading>
+              <InputGroup>
+                <Input 
+                  placeholder="Amount to Unstake" 
+                  type="number" 
+                  value={unstakeAmount} 
+                  onChange={(e) => setUnstakeAmount(e.target.value)}
+                  step="0.000001"
+                />
+                <InputRightAddon>{TOKEN_DISPLAY}</InputRightAddon>
+              </InputGroup>
+              <Button 
+                colorScheme="orange" 
+                onClick={handleUnstake} 
+                isLoading={actionLoading} 
+                isDisabled={!unstakeAmount || parseFloat(unstakeAmount) <= 0}
+                width="100%"
+                size="lg"
+              >
+                Unstake ARIA
+              </Button>
+            </VStack>
+          </SimpleGrid>
+
+          <VStack spacing={4}>
+            <Button 
+              colorScheme="green" 
+              size="lg" 
+              onClick={handleClaim} 
+              isLoading={actionLoading} 
+              isDisabled={balances.rewards === 0n}
+              width={{ base: '100%', md: '400px' }}
+              leftIcon={<span>💰</span>}
+            >
+              Claim {formatBalance(balances.rewards)} STX Rewards
+            </Button>
+            <Text fontSize="xs" color="gray.500">
+              Rewards are distributed proportionally based on your staked amount
+            </Text>
+          </VStack>
+        </>
       )}
     </Box>
   );
