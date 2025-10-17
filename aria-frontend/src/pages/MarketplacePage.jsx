@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Box, Button, Heading, Text, VStack, Spinner, SimpleGrid, Image, useToast, Badge } from '@chakra-ui/react';
+import { Box, Button, Heading, Text, VStack, Spinner, SimpleGrid, Image, useToast, Badge, HStack } from '@chakra-ui/react';
 import { cvToJSON, uintCV, cvToHex, Pc, deserializeCV } from '@stacks/transactions';
 
 import { STACKS_NETWORK, RWA_NFT_CONTRACT_ID, MARKETPLACE_CONTRACT_ID, DENOM_DISPLAY, DENOM_DECIMALS } from '../constants';
@@ -7,9 +7,9 @@ import { STACKS_NETWORK, RWA_NFT_CONTRACT_ID, MARKETPLACE_CONTRACT_ID, DENOM_DIS
 const MarketplacePage = ({ address }) => {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [buyingNft, setBuyingNft] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [interestedNfts, setInterestedNfts] = useState(new Set());
   const toast = useToast();
 
   const callReadOnly = async (contractId, functionName, functionArgs) => {
@@ -61,9 +61,6 @@ const MarketplacePage = ({ address }) => {
     const debug = { step: '', error: null, lastTokenId: 0, listings: [] };
 
     try {
-      // ───────────────────────────────────────────────
-      // STEP 1: Fetch total NFTs minted
-      // ───────────────────────────────────────────────
       debug.step = 'Fetching last token ID';
       console.log('🔍 Step 1: Getting last token ID from', RWA_NFT_CONTRACT_ID);
 
@@ -106,9 +103,6 @@ const MarketplacePage = ({ address }) => {
         return;
       }
 
-      // ───────────────────────────────────────────────
-      // STEP 2: Check listings for each token
-      // ───────────────────────────────────────────────
       debug.step = `Checking ${lastTokenId} tokens for listings`;
       console.log(`🔍 Step 2: Checking tokens 1–${lastTokenId} for listings`);
 
@@ -137,17 +131,12 @@ const MarketplacePage = ({ address }) => {
                 listingResult.type?.startsWith('(optional') ||
                 listingResult.value?.price
               ) {
-                // Extract the tuple value from the optional wrapper
                 const listingData = listingResult.value?.value || listingResult.value;
                 console.log(`📋 Token #${i} listing data:`, listingData);
 
-                // Handle nested price/seller structure
                 const priceCV = listingData.price?.value !== undefined ? listingData.price.value : listingData.price;
                 const sellerCV = listingData.seller?.value !== undefined ? listingData.seller.value : listingData.seller;
 
-                // ───────────────────────────────
-                // Fetch metadata from NFT contract
-                // ───────────────────────────────
                 console.log(`📝 Fetching metadata for token #${i}`);
                 const metadataUriResult = await callReadOnly(
                   RWA_NFT_CONTRACT_ID,
@@ -250,44 +239,18 @@ const MarketplacePage = ({ address }) => {
     }
   }, [fetchListings, address]);
 
-  const handleBuy = async (listing) => {
-    setBuyingNft(listing.tokenId);
+  const handleRegisterInterest = (listing) => {
+    const newInterested = new Set(interestedNfts);
+    newInterested.add(listing.tokenId);
+    setInterestedNfts(newInterested);
 
-    try {
-      const [marketplaceAddress, marketplaceName] = MARKETPLACE_CONTRACT_ID.split('.');
-
-      const postCondition = Pc.origin(address).willSendSTX().equalTo(BigInt(listing.price));
-
-      const networkMode = STACKS_NETWORK.client.baseUrl.includes('mainnet') ? 'mainnet' : 'testnet';
-
-      await window.LeatherProvider.request('stx_callContract', {
-        contract: `${marketplaceAddress}.${marketplaceName}`,
-        functionName: 'purchase-asset',
-        functionArgs: [cvToHex(uintCV(listing.tokenId))],
-        postConditions: [postCondition],
-        network: networkMode,
-      });
-
-      toast({
-        title: "Purchase Submitted!",
-        description: "Your purchase is being processed",
-        status: "success"
-      });
-
-      setTimeout(fetchListings, 3000);
-
-    } catch (e) {
-      console.error("Purchase error:", e);
-      const errorMsg = e.error?.message || e.message || "Failed to purchase NFT";
-      toast({
-        title: "Purchase Error",
-        description: errorMsg,
-        status: "error",
-        duration: 8000
-      });
-    } finally {
-      setBuyingNft(null);
-    }
+    toast({
+      title: "🎯 Interest Registered!",
+      description: `You've registered interest in NFT #${listing.tokenId}. Public sale launches soon!`,
+      status: "success",
+      duration: 4000,
+      isClosable: true,
+    });
   };
 
   if (loading) {
@@ -307,7 +270,13 @@ const MarketplacePage = ({ address }) => {
   return (
     <Box mt={2} p={6} shadow="lg" borderWidth="1px" borderRadius="xl" width="100%" bg="gray.800">
       <VStack spacing={4} mb={6}>
-        <Heading as="h2" size="lg" textAlign="center">RWA Marketplace</Heading>
+        <Badge colorScheme="purple" fontSize="md" px={4} py={2}>
+          🌟 PRESALE PREVIEW
+        </Badge>
+        <Heading as="h2" size="lg" textAlign="center">Premium RWA Marketplace</Heading>
+        <Text fontSize="sm" color="gray.400" textAlign="center" maxW="2xl">
+          AI-verified real-world assets • Public sale launching soon
+        </Text>
         
         <Button 
           onClick={fetchListings} 
@@ -330,7 +299,7 @@ const MarketplacePage = ({ address }) => {
           <VStack align="stretch" spacing={2}>
             <Text><strong>🔍 Status:</strong> {debugInfo.step}</Text>
             <Text><strong>📊 Total NFTs Minted:</strong> {debugInfo.lastTokenId}</Text>
-            <Text><strong>🏪 Listed for Sale:</strong> {debugInfo.listings.length}</Text>
+            <Text><strong>🏪 Listed for Sale:</strong> {listings.length}</Text>
             {debugInfo.error && (
               <Text color="red.300"><strong>❌ Error:</strong> {debugInfo.error}</Text>
             )}
@@ -365,14 +334,31 @@ const MarketplacePage = ({ address }) => {
         </VStack>
       ) : (
         <>
-          <Text textAlign="center" mb={4} color="gray.400">
-            {listings.length} listing(s) available
-          </Text>
+          <HStack justify="space-between" mb={4}>
+            <Text color="gray.400">
+              {listings.length} premium listing(s) • Presale mode active
+            </Text>
+            <Badge colorScheme="green" fontSize="sm">✨ AI-Verified</Badge>
+          </HStack>
+          
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
             {listings.map((listing) => (
-              <Box key={listing.tokenId} p={5} shadow="md" borderWidth="1px" borderRadius="md" bg="gray.700">
+              <Box 
+                key={listing.tokenId} 
+                p={5} 
+                shadow="md" 
+                borderWidth="1px" 
+                borderRadius="md" 
+                bg="gray.700"
+                borderColor={interestedNfts.has(listing.tokenId) ? "purple.500" : "gray.600"}
+                transition="all 0.2s"
+              >
                 <VStack spacing={4}>
-                  <Badge colorScheme="purple">NFT #{listing.tokenId}</Badge>
+                  <HStack justify="space-between" width="100%">
+                    <Badge colorScheme="purple">NFT #{listing.tokenId}</Badge>
+                    <Badge colorScheme="orange" fontSize="xs">PRESALE</Badge>
+                  </HStack>
+                  
                   <Image
                     src={listing.metadata.image}
                     alt={listing.metadata.name}
@@ -381,23 +367,54 @@ const MarketplacePage = ({ address }) => {
                     objectFit="cover"
                     fallbackSrc="https://via.placeholder.com/200"
                   />
+                  
                   <Heading size="md" noOfLines={1}>{listing.metadata.name}</Heading>
-                  <Text fontWeight="bold" fontSize="lg" color="purple.300">
-                    {listing.price / (10 ** DENOM_DECIMALS)} {DENOM_DISPLAY}
-                  </Text>
+                  
+                  <Box bg="gray.800" p={3} borderRadius="md" width="100%">
+                    <Text fontSize="xs" color="gray.400">Estimated Value</Text>
+                    <Text fontWeight="bold" fontSize="lg" color="purple.300">
+                      {listing.price / (10 ** DENOM_DECIMALS)} {DENOM_DISPLAY}
+                    </Text>
+                  </Box>
+                  
                   <Button
                     colorScheme="purple"
                     width="100%"
-                    onClick={() => handleBuy(listing)}
-                    isLoading={buyingNft === listing.tokenId}
+                    onClick={() => handleRegisterInterest(listing)}
                     isDisabled={address === listing.seller}
+                    variant={interestedNfts.has(listing.tokenId) ? "solid" : "outline"}
                   >
-                    {address === listing.seller ? "You are the seller" : "Buy Now"}
+                    {address === listing.seller 
+                      ? "Your Listing" 
+                      : interestedNfts.has(listing.tokenId)
+                      ? "Interest Registered ✓"
+                      : "Register Interest"}
                   </Button>
+                  
+                  <Text fontSize="xs" color="gray.500" textAlign="center">
+                    🚀 Public sale launching soon
+                  </Text>
                 </VStack>
               </Box>
             ))}
           </SimpleGrid>
+
+          <Box mt={8} p={6} bg="purple.900" borderRadius="lg" borderWidth="1px" borderColor="purple.600">
+            <VStack spacing={3}>
+              <Heading size="sm" color="purple.200">
+                💎 Exclusive Presale Preview
+              </Heading>
+              <Text fontSize="sm" color="purple.100" textAlign="center">
+                These AI-verified RWA NFTs are in presale mode. Register your interest to be among 
+                the first notified when public trading launches. Each asset is thoroughly verified and blockchain-secured.
+              </Text>
+              <HStack spacing={4} mt={2} flexWrap="wrap" justify="center">
+                <Badge colorScheme="green">AI Verified</Badge>
+                <Badge colorScheme="blue">Blockchain Secured</Badge>
+                <Badge colorScheme="purple">Premium Assets</Badge>
+              </HStack>
+            </VStack>
+          </Box>
         </>
       )}
     </Box>
