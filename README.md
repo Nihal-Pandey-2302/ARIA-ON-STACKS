@@ -90,7 +90,7 @@ We delivered a feature-rich MVP that showcases a truly investable and self-susta
 
 ### Live Demo (Recommended)
 
-**Live Application URL:** **[YOUR_VERCEL_OR_NETLIFY_URL]**
+**Live Application URL:** **[[Live App]](https://aria-on-stacks.vercel.app/)**
 
 **User Journey:**
 
